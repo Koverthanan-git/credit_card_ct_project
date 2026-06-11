@@ -1,0 +1,40 @@
+# config/traefik.yaml
+# Static configuration — loaded once at Traefik startup.
+# Defines entry points, the file provider for dynamic config, and the dashboard.
+
+# -----------------------------------------------------------------
+# Entry Points
+# -----------------------------------------------------------------
+entryPoints:
+  # The public-facing gateway port — all client traffic enters here
+  web:
+    address: ":8000"
+
+  # Traefik dashboard (monitoring UI)
+  traefik:
+    address: ":8080"
+
+# -----------------------------------------------------------------
+# Providers
+# -----------------------------------------------------------------
+providers:
+  # File provider enables hot-reloading of dynamic_conf.yaml
+  # Traefik watches this file and applies changes without restart
+  file:
+    filename: "config/dynamic_conf.yaml"
+    watch: true
+
+# -----------------------------------------------------------------
+# API / Dashboard
+# -----------------------------------------------------------------
+api:
+  dashboard: true
+  insecure: true   # Allows dashboard access on :8080 without TLS (local dev only)
+
+# -----------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------
+log:
+  level: INFO
+
+accessLog: {}    # Enable access logging to stdout

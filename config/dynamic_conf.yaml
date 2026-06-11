@@ -1,0 +1,60 @@
+# config/dynamic_conf.yaml
+# Dynamic configuration — hot-reloaded by Traefik whenever this file changes.
+# Implements Shadow Deployment (Traffic Mirroring):
+#
+#   Client → :8000 (Traefik)
+#       │
+#       ├── 100% → production-service  (FastAPI active model   → :8001)
+#       │
+#       └── Mirror (100%) → staging-service  (Prefect-retrained model → :8002)
+#           [Silent copy — response is discarded, client never sees it]
+#
+# When a new model is deployed by Prefect on port 8002, it automatically begins
+# receiving mirrored shadow traffic — no Traefik restart required.
+
+http:
+  # -----------------------------------------------------------------
+  # Routers
+  # -----------------------------------------------------------------
+  routers:
+    # Single router: catch all incoming requests on the 'web' entrypoint
+    credit-card-router:
+      entryPoints:
+        - web
+      rule: "PathPrefix(`/`)"          # Match all paths (pass-through gateway)
+      service: mirrored-production     # Delegate to the mirroring service below
+      priority: 1
+
+  # -----------------------------------------------------------------
+  # Services
+  # -----------------------------------------------------------------
+  services:
+
+    # ── Mirroring Service (Shadow Deployment) ────────────────────────
+    # Routes 100% of real traffic to the production backend.
+    # Silently clones every request to the staging backend (mirror).
+    mirrored-production:
+      mirroring:
+        service: production-service    # Primary destination (live responses returned)
+        maxBodySize: -1                # Mirror full request body (no truncation)
+        mirrors:
+          - name: staging-service      # Shadow target (response is silently discarded)
+            percent: 100               # Mirror 100% of requests to staging
+
+    # ── Production Service — Active Model (:8001) ────────────────────
+    production-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8001"
+        healthCheck:
+          path: /docs                  # FastAPI auto-generates /docs — use as health probe
+          interval: "10s"
+          timeout: "3s"
+
+    # ── Staging Service — Prefect-Retrained Model (:8002) ────────────
+    # Traffic is mirrored here silently; responses are discarded.
+    # Deploy a new model on :8002 and it immediately receives shadow load.
+    staging-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8002"
