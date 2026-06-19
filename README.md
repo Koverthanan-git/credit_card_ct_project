@@ -1,0 +1,1 @@
+its A MLOPs project aims to create a pipline with flow of Continues Integeration and deplopyement of the ML model with training of it using a drift value and also using ml flow for managment and evaluate ai for the flow 
